@@ -9,6 +9,69 @@ $total = $conn->query("SELECT COUNT(*) AS count FROM feedback")->fetch_assoc()['
 $new = $conn->query("SELECT COUNT(*) AS count FROM feedback WHERE status = 'new'")->fetch_assoc()['count'];
 $in_progress = $conn->query("SELECT COUNT(*) AS count FROM feedback WHERE status = 'in_progress'")->fetch_assoc()['count'];
 $resolved = $conn->query("SELECT COUNT(*) AS count FROM feedback WHERE status = 'resolved'")->fetch_assoc()['count'];
+
+// Additional Data
+$totalCategories = $conn->query("SELECT COUNT(*) AS count FROM categories")->fetch_assoc()['count'];
+$totalUsers = $conn->query("SELECT COUNT(*) AS count FROM customertbl")->fetch_assoc()['count'];
+$totalResponses = $conn->query("SELECT COUNT(*) AS count FROM feedback_form_responses")->fetch_assoc()['count'];
+$totalFeedbackReceived = $conn->query("SELECT COUNT(*) AS count FROM feedback WHERE status != 'resolved'")->fetch_assoc()['count'];
+
+// Get monthly status counts for last 6 months
+$months = [];
+$status_data = ['new' => [], 'in_progress' => [], 'resolved' => []];
+
+for ($i = 5; $i >= 0; $i--) {
+  $monthLabel = date('M Y', strtotime("-$i months"));
+  $monthStart = date('Y-m-01', strtotime("-$i months"));
+  $monthEnd = date('Y-m-t', strtotime("-$i months"));
+  $months[] = $monthLabel;
+
+  foreach (['new', 'in_progress', 'resolved'] as $status) {
+    $stmt = $conn->prepare("SELECT COUNT(*) AS count FROM feedback WHERE status = ? AND created_at BETWEEN ? AND ?");
+    $stmt->bind_param("sss", $status, $monthStart, $monthEnd);
+    $stmt->execute();
+    $res = $stmt->get_result()->fetch_assoc();
+    $status_data[$status][] = (int)$res['count'];
+  }
+}
+
+// Monthly feedback
+$monthlyData = $conn->query("SELECT MONTH(created_at) as month, COUNT(*) as total FROM feedback GROUP BY MONTH(created_at)");
+$months = []; $totals = [];
+while ($row = $monthlyData->fetch_assoc()) {
+    $months[] = date("F", mktime(0, 0, 0, $row['month'], 10));
+    $totals[] = $row['total'];
+}
+
+// Feedback by category
+$catData = $conn->query("SELECT c.name, COUNT(*) as total FROM feedback f LEFT JOIN categories c ON f.category_id = c.id GROUP BY c.name");
+$catLabels = []; $catCounts = [];
+while ($row = $catData->fetch_assoc()) {
+    $catLabels[] = $row['name'] ?? 'Uncategorized';
+    $catCounts[] = $row['total'];
+}
+
+// Rating
+$ratingData = $conn->query("SELECT rating, COUNT(*) as total FROM feedback GROUP BY rating");
+$ratings = []; $ratingCounts = [];
+while ($row = $ratingData->fetch_assoc()) {
+    $ratings[] = $row['rating'] . "★";
+    $ratingCounts[] = $row['total'];
+}
+
+// Status
+$statusData = $conn->query("SELECT status, COUNT(*) as total FROM feedback GROUP BY status");
+$statusLabels = []; $statusCounts = [];
+while ($row = $statusData->fetch_assoc()) {
+    $statusLabels[] = ucfirst(str_replace('_', ' ', $row['status']));
+    $statusCounts[] = $row['total'];
+}
+
+// Example Data for Tables
+$feedbackData = $conn->query("SELECT id, name, status, created_at FROM feedback ORDER BY created_at DESC LIMIT 5");
+$categoryData = $conn->query("SELECT c.name, COUNT(*) as total FROM feedback f LEFT JOIN categories c ON f.category_id = c.id GROUP BY c.name");
+$ratingData = $conn->query("SELECT rating, COUNT(*) as total FROM feedback GROUP BY rating");
+$monthlyData = $conn->query("SELECT MONTH(created_at) as month, COUNT(*) as total FROM feedback GROUP BY MONTH(created_at)");
 ?>
 
 <!-- Bootstrap Icons -->
@@ -75,59 +138,6 @@ $resolved = $conn->query("SELECT COUNT(*) AS count FROM feedback WHERE status = 
   }
 </style>
 
-<?php
-// Get monthly status counts for last 6 months
-$months = [];
-$status_data = ['new' => [], 'in_progress' => [], 'resolved' => []];
-
-for ($i = 5; $i >= 0; $i--) {
-  $monthLabel = date('M Y', strtotime("-$i months"));
-  $monthStart = date('Y-m-01', strtotime("-$i months"));
-  $monthEnd = date('Y-m-t', strtotime("-$i months"));
-  $months[] = $monthLabel;
-
-  foreach (['new', 'in_progress', 'resolved'] as $status) {
-    $stmt = $conn->prepare("SELECT COUNT(*) AS count FROM feedback WHERE status = ? AND created_at BETWEEN ? AND ?");
-    $stmt->bind_param("sss", $status, $monthStart, $monthEnd);
-    $stmt->execute();
-    $res = $stmt->get_result()->fetch_assoc();
-    $status_data[$status][] = (int)$res['count'];
-  }
-}
-
-// Monthly feedback
-$monthlyData = $conn->query("SELECT MONTH(created_at) as month, COUNT(*) as total FROM feedback GROUP BY MONTH(created_at)");
-$months = []; $totals = [];
-while ($row = $monthlyData->fetch_assoc()) {
-    $months[] = date("F", mktime(0, 0, 0, $row['month'], 10));
-    $totals[] = $row['total'];
-}
-
-// Feedback by category
-$catData = $conn->query("SELECT c.name, COUNT(*) as total FROM feedback f LEFT JOIN categories c ON f.category_id = c.id GROUP BY c.name");
-$catLabels = []; $catCounts = [];
-while ($row = $catData->fetch_assoc()) {
-    $catLabels[] = $row['name'] ?? 'Uncategorized';
-    $catCounts[] = $row['total'];
-}
-
-// Rating
-$ratingData = $conn->query("SELECT rating, COUNT(*) as total FROM feedback GROUP BY rating");
-$ratings = []; $ratingCounts = [];
-while ($row = $ratingData->fetch_assoc()) {
-    $ratings[] = $row['rating'] . "★";
-    $ratingCounts[] = $row['total'];
-}
-
-// Status
-$statusData = $conn->query("SELECT status, COUNT(*) as total FROM feedback GROUP BY status");
-$statusLabels = []; $statusCounts = [];
-while ($row = $statusData->fetch_assoc()) {
-    $statusLabels[] = ucfirst(str_replace('_', ' ', $row['status']));
-    $statusCounts[] = $row['total'];
-}
-?>
-
 <h2 class="mb-4">Welcome, <?= htmlspecialchars($_SESSION['user_name']) ?></h2>
 
 <div class="row g-3">
@@ -168,6 +178,171 @@ while ($row = $statusData->fetch_assoc()) {
     </div>
   </div>
 </div>
+
+<!-- New Cards Added Below -->
+
+<div class="row g-3 mt-4">
+  <div class="col-6 col-md-3">
+    <div class="glass-card">
+      <div class="card-body">
+        <div class="icon-circle bg-info"><i class="bi bi-file-earmark-text"></i></div>
+        <div class="stat-title">Total Categories</div>
+        <div class="stat-number"><?= $totalCategories ?></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="glass-card">
+      <div class="card-body">
+        <div class="icon-circle bg-secondary"><i class="bi bi-person"></i></div>
+        <div class="stat-title">Total Users</div>
+        <div class="stat-number"><?= $totalUsers ?></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="glass-card">
+      <div class="card-body">
+        <div class="icon-circle bg-danger"><i class="bi bi-person-check"></i></div>
+        <div class="stat-title">Total Responses</div>
+        <div class="stat-number"><?= $totalResponses ?></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="glass-card">
+      <div class="card-body">
+        <div class="icon-circle bg-success"><i class="bi bi-check-circle"></i></div>
+        <div class="stat-title">Feedback Received</div>
+        <div class="stat-number"><?= $totalFeedbackReceived ?></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 4 Tables in a 2x2 Grid -->
+<div class="row mt-4 g-3">
+  <!-- Table 1: Recent Feedback -->
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header">
+        <h6 class="mb-0">Recent Feedback</h6>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-bordered table-sm">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Submitted At</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php $feedbackData->data_seek(0); while ($row = $feedbackData->fetch_assoc()): ?>
+                <tr>
+                  <td><?= $row['id'] ?></td>
+                  <td><?= htmlspecialchars($row['name']) ?></td>
+                  <td><?= ucfirst($row['status']) ?></td>
+                  <td><?= date("M d, Y", strtotime($row['created_at'])) ?></td>
+                </tr>
+              <?php endwhile; ?>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table 2: Feedback by Category -->
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header">
+        <h6 class="mb-0">Feedback by Category</h6>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-bordered table-sm">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Total Feedback</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php $categoryData->data_seek(0); while ($row = $categoryData->fetch_assoc()): ?>
+                <tr>
+                  <td><?= htmlspecialchars($row['name']) ?></td>
+                  <td><?= $row['total'] ?></td>
+                </tr>
+              <?php endwhile; ?>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table 3: Feedback Ratings -->
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header">
+        <h6 class="mb-0">Feedback Ratings</h6>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-bordered table-sm">
+            <thead>
+              <tr>
+                <th>Rating</th>
+                <th>Total Feedback</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php $ratingData->data_seek(0); while ($row = $ratingData->fetch_assoc()): ?>
+                <tr>
+                  <td><?= $row['rating'] ?> ★</td>
+                  <td><?= $row['total'] ?></td>
+                </tr>
+              <?php endwhile; ?>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table 4: Monthly Feedback -->
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header">
+        <h6 class="mb-0">Monthly Feedback</h6>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-bordered table-sm">
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th>Total Feedback</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php $monthlyData->data_seek(0); while ($row = $monthlyData->fetch_assoc()): ?>
+                <tr>
+                  <td><?= date("F", mktime(0, 0, 0, $row['month'], 10)) ?></td>
+                  <td><?= $row['total'] ?></td>
+                </tr>
+              <?php endwhile; ?>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 
 <!-- Full-width Feedback Trends Chart -->
 <div class="row mt-5">
@@ -282,3 +457,7 @@ while ($row = $statusData->fetch_assoc()) {
 </div>
 
 <?php include 'includes/footer.php'; ?>
+
+
+
+

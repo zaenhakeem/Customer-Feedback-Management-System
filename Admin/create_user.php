@@ -1,8 +1,55 @@
 <?php
 require_once '../db.php';
 
-include 'includes/header.php';
+include 'includes/header.php';  // session started here
 include 'includes/sidebar.php';
+
+// Access Denied styles and animation
+$accessDeniedHtml = '
+<style>
+  .access-denied {
+    max-width: 400px;
+    margin: 3rem auto;
+    padding: 1.5rem 2rem;
+    border-radius: 8px;
+    background-color: #ffe6e6;
+    color: #b30000;
+    font-weight: 600;
+    text-align: center;
+    box-shadow: 0 0 15px rgba(179, 0, 0, 0.3);
+    opacity: 0;
+    animation: fadeIn 0.8s forwards;
+    font-family: Arial, sans-serif;
+  }
+  @keyframes fadeIn {
+    to { opacity: 1; }
+  }
+  .access-denied svg {
+    width: 50px;
+    height: 50px;
+    margin-bottom: 0.7rem;
+  }
+</style>
+<div class="access-denied">
+  <svg fill="none" stroke="#b30000" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <circle cx="12" cy="12" r="10" stroke-linecap="round" stroke-linejoin="round"></circle>
+    <line x1="15" y1="9" x2="9" y2="15" stroke-linecap="round" stroke-linejoin="round"></line>
+    <line x1="9" y1="9" x2="15" y2="15" stroke-linecap="round" stroke-linejoin="round"></line>
+  </svg>
+  Access Denied<br>
+  <small>Only Admins can Add new users.</small>
+</div>';
+
+// Check role and show Access Denied if not admin or no role
+if (!isset($_SESSION['user_role'])) {
+    echo $accessDeniedHtml;
+    include 'includes/footer.php';
+    exit;
+} elseif ($_SESSION['user_role'] !== 'admin') {
+    echo $accessDeniedHtml;
+    include 'includes/footer.php';
+    exit;
+}
 
 $success = '';
 $error = '';
@@ -41,9 +88,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <h3 class="mb-4">Create New User</h3>
 
 <?php if ($success): ?>
-  <div class="alert alert-success"><?= $success ?></div>
+  <div class="alert alert-success"><?= htmlspecialchars($success) ?></div>
 <?php elseif ($error): ?>
-  <div class="alert alert-danger"><?= $error ?></div>
+  <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
 <?php endif; ?>
 
 <form method="POST" class="bg-white p-4 shadow-sm rounded">
@@ -74,4 +121,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <button type="submit" class="btn btn-success">Create User</button>
 </form>
 
-<?php include 'includes/footer.php';
+<?php include 'includes/footer.php'; ?>
