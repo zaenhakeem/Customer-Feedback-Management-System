@@ -157,7 +157,7 @@ session_start();
         <a href="forms.php" class="list-group-item">
           <i class="bi bi-file-earmark-text me-2"></i> View Forms
         </a>
-        <a href="profile.php" class="list-group-item">
+        <a href="customer_profile.php" class="list-group-item">
           <i class="bi bi-person-circle me-2"></i> Profile
         </a>
         <a href="contact.php" class="list-group-item">
