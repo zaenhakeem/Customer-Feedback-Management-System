@@ -182,7 +182,7 @@ $unreadCount = $conn->query("SELECT COUNT(*) AS count FROM notifications WHERE i
         </li>
         <li><hr class="dropdown-divider"></li>
         <li><a class="dropdown-item" href="profile.php"><i class="bi bi-gear me-2"></i>Profile</a></li>
-        <li><a class="dropdown-item text-danger" href="../logout.php"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+        <li><a class="dropdown-item text-danger" href="logout.php"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
       </ul>
     </div>
 
